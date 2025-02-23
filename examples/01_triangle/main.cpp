@@ -2,6 +2,7 @@
 #include "SDL3/SDL.h"
 #include "SDL3/SDL_main.h"
 #include <vector>
+#include <iostream>
 
 struct GPUShaderBundle {
     SDL_GPUShader* vertex{};
@@ -24,11 +25,15 @@ bool initSDL() {
         return false;
     }
 
+    for (int i = 0; i < SDL_GetNumGPUDrivers(); i++) {
+        std::cout << SDL_GetGPUDriver(i) << std::endl;
+    }
+
     // NOTE: must create gpu gDevice firstly, then create gWindow
     gDevice = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV |
                                       SDL_GPU_SHADERFORMAT_DXIL |
                                       SDL_GPU_SHADERFORMAT_MSL,
-                                  false, nullptr);
+                                  true, nullptr);
     if (!gDevice) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "SDL create gpu gDevice failed: %s",
                      SDL_GetError());
@@ -49,7 +54,7 @@ bool initSDL() {
     return true;
 }
 
-SDL_GPUShader* loadSDLGPUShader(const char* filename, SDL_Storage* storage) {
+SDL_GPUShader* loadSDLGPUShader(const char* filename, SDL_Storage* storage, SDL_GPUShaderStage stage) {
     Uint64 file_size;
     if (!SDL_GetStorageFileSize(storage, filename, &file_size)) {
         SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "get file %s size failed!: %s",
@@ -73,7 +78,7 @@ SDL_GPUShader* loadSDLGPUShader(const char* filename, SDL_Storage* storage) {
     ci.num_storage_buffers = 0;
     ci.num_storage_textures = 0;
     ci.num_uniform_buffers = 0;
-    ci.stage = SDL_GPU_SHADERSTAGE_VERTEX;
+    ci.stage = stage;
 
     SDL_GPUShader* shader = SDL_CreateGPUShader(gDevice, &ci);
     if (!shader) {
@@ -86,7 +91,7 @@ SDL_GPUShader* loadSDLGPUShader(const char* filename, SDL_Storage* storage) {
 }
 
 GPUShaderBundle createSDLGPUShaderBundle() {
-    const char* dir = "examples/triangle";
+    const char* dir = "examples/01_triangle";
     SDL_Storage* storage = SDL_OpenFileStorage(dir);
     if (!storage) {
         SDL_LogError(
@@ -101,8 +106,8 @@ GPUShaderBundle createSDLGPUShaderBundle() {
     }
 
     GPUShaderBundle bundle;
-    bundle.vertex = loadSDLGPUShader("vert.spv", storage);
-    bundle.fragment = loadSDLGPUShader("frag.spv", storage);
+    bundle.vertex = loadSDLGPUShader("vert.spv", storage, SDL_GPU_SHADERSTAGE_VERTEX);
+    bundle.fragment = loadSDLGPUShader("frag.spv", storage, SDL_GPU_SHADERSTAGE_FRAGMENT);
 
     SDL_CloseStorage(storage);
     return bundle;
