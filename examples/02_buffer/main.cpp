@@ -19,6 +19,9 @@ SDL_GPUDevice* gDevice = nullptr;
 GPUShaderBundle gShaders;
 SDL_GPUGraphicsPipeline* gGraphicsPipeline;
 
+SDL_GPUBuffer* gVertexBuffer;
+SDL_GPUBuffer* gIndicesBuffer;
+
 bool initSDL() {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "SDL init failed");
@@ -50,6 +53,7 @@ bool initSDL() {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Your system don't support SDL GPU");
         return false;
     }
+
 
     return true;
 }
@@ -91,7 +95,7 @@ SDL_GPUShader* loadSDLGPUShader(const char* filename, SDL_Storage* storage, SDL_
 }
 
 GPUShaderBundle createSDLGPUShaderBundle() {
-    const char* dir = "examples/01_triangle";
+    const char* dir = "examples/02_buffer";
     SDL_Storage* storage = SDL_OpenFileStorage(dir);
     if (!storage) {
         SDL_LogError(
@@ -116,8 +120,35 @@ GPUShaderBundle createSDLGPUShaderBundle() {
 SDL_GPUGraphicsPipeline* createGraphicsPipeline() {
     SDL_GPUGraphicsPipelineCreateInfo ci{};
 
-    ci.vertex_input_state.num_vertex_attributes = 0;
-    ci.vertex_input_state.num_vertex_buffers = 0;
+    SDL_GPUVertexAttribute attributes[2];
+
+    // position attribute
+    {
+        attributes[0].location = 0;
+        attributes[0].buffer_slot = 0;
+        attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+        attributes[0].offset = 0;
+    }
+    
+    // color attribute
+    {
+        attributes[1].location = 1;
+        attributes[1].buffer_slot = 0;
+        attributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+        attributes[1].offset = sizeof(float) * 2;
+    }
+    
+    ci.vertex_input_state.vertex_attributes = attributes;
+    ci.vertex_input_state.num_vertex_attributes = 2;
+
+    SDL_GPUVertexBufferDescription buffer_desc;
+    buffer_desc.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+    buffer_desc.instance_step_rate = 1;
+    buffer_desc.slot = 0;
+    buffer_desc.pitch = sizeof(float) * 5;
+    
+    ci.vertex_input_state.num_vertex_buffers = 1;
+    ci.vertex_input_state.vertex_buffer_descriptions = &buffer_desc;
 
     ci.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     ci.vertex_shader = gShaders.vertex;
@@ -151,6 +182,95 @@ SDL_GPUGraphicsPipeline* createGraphicsPipeline() {
     return SDL_CreateGPUGraphicsPipeline(gDevice, &ci);
 }
 
+struct Vertex {
+    float x, y;
+    float r, g, b;
+};
+
+void createAndUploadVertexData() {
+    Vertex vertices[] = {
+        // left bottom
+        Vertex{ -0.5, -0.5, 1.0, 0.0, 0.0},
+        // right bottom
+        Vertex{ 0.5,  -0.5, 0.0, 1.0, 0.0},
+        // right top
+        Vertex{0.5,  0.5, 0.0, 0.0, 1.0},
+        // left top
+        Vertex{ -0.5, 0.5, 1.0, 1.0, 0.0},
+    };
+    
+    SDL_GPUTransferBufferCreateInfo transfer_buffer_ci;
+    transfer_buffer_ci.size = sizeof(vertices);
+    transfer_buffer_ci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+
+    SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gDevice, &transfer_buffer_ci);
+    void* ptr = SDL_MapGPUTransferBuffer(gDevice, transfer_buffer, false);
+    memcpy(ptr, &vertices, sizeof(vertices));
+    SDL_UnmapGPUTransferBuffer(gDevice, transfer_buffer);
+
+    SDL_GPUBufferCreateInfo gpu_buffer_ci;
+    gpu_buffer_ci.size = sizeof(vertices);
+    gpu_buffer_ci.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+
+    gVertexBuffer = SDL_CreateGPUBuffer(gDevice, &gpu_buffer_ci);
+
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gDevice);
+    SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTransferBufferLocation location;
+    location.offset = 0;
+    location.transfer_buffer = transfer_buffer;
+    SDL_GPUBufferRegion region;
+    region.buffer = gVertexBuffer;
+    region.offset = 0;
+    region.size = sizeof(vertices);
+    SDL_UploadToGPUBuffer(copy_pass, &location, &region, false);
+    SDL_EndGPUCopyPass(copy_pass);
+
+    SDL_SubmitGPUCommandBuffer(cmd);
+
+    
+    SDL_ReleaseGPUTransferBuffer(gDevice, transfer_buffer);
+}
+
+void createAndUploadIndicesData() {
+    uint32_t indices[] = {
+        0, 1, 2,
+        0, 3, 2,
+    };
+    
+    SDL_GPUTransferBufferCreateInfo transfer_buffer_ci;
+    transfer_buffer_ci.size = sizeof(indices);
+    transfer_buffer_ci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+
+    SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gDevice, &transfer_buffer_ci);
+    void* ptr = SDL_MapGPUTransferBuffer(gDevice, transfer_buffer, false);
+    memcpy(ptr, &indices, sizeof(indices));
+    SDL_UnmapGPUTransferBuffer(gDevice, transfer_buffer);
+
+    SDL_GPUBufferCreateInfo gpu_buffer_ci;
+    gpu_buffer_ci.size = sizeof(indices);
+    gpu_buffer_ci.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+
+    gIndicesBuffer = SDL_CreateGPUBuffer(gDevice, &gpu_buffer_ci);
+
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gDevice);
+    SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTransferBufferLocation location;
+    location.offset = 0;
+    location.transfer_buffer = transfer_buffer;
+    SDL_GPUBufferRegion region;
+    region.buffer = gIndicesBuffer;
+    region.offset = 0;
+    region.size = sizeof(indices);
+    SDL_UploadToGPUBuffer(copy_pass, &location, &region, false);
+    SDL_EndGPUCopyPass(copy_pass);
+
+    SDL_SubmitGPUCommandBuffer(cmd);
+
+    
+    SDL_ReleaseGPUTransferBuffer(gDevice, transfer_buffer);
+}
+
 // SDL main loop
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
@@ -170,6 +290,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                      SDL_GetError());
         return SDL_APP_FAILURE;
     }
+    
+    createAndUploadVertexData();
+    createAndUploadIndicesData();
 
     return SDL_APP_CONTINUE;
 }
@@ -206,6 +329,16 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
         SDL_BeginGPURenderPass(cmd, &color_target_info, 1, nullptr);
     SDL_BindGPUGraphicsPipeline(render_pass, gGraphicsPipeline);
 
+    SDL_GPUBufferBinding binding;
+    binding.buffer = gVertexBuffer;
+    binding.offset = 0;
+    SDL_BindGPUVertexBuffers(render_pass, 0, &binding, 1);
+
+    SDL_GPUBufferBinding indices_binding;
+    indices_binding.buffer = gIndicesBuffer;
+    indices_binding.offset = 0;
+    SDL_BindGPUIndexBuffer(render_pass, &indices_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
     int window_width, window_height;
     SDL_GetWindowSize(gWindow, &window_width, &window_height);
     
@@ -217,7 +350,8 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     viewport.min_depth = 0;
     viewport.max_depth = 1;
     SDL_SetGPUViewport(render_pass, &viewport);
-    SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
+    // SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
+    SDL_DrawGPUIndexedPrimitives(render_pass, 6, 1, 0, 0, 0);
 
     SDL_EndGPURenderPass(render_pass);
 
@@ -238,6 +372,8 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+    SDL_ReleaseGPUBuffer(gDevice, gIndicesBuffer);
+    SDL_ReleaseGPUBuffer(gDevice, gVertexBuffer);
     SDL_ReleaseGPUGraphicsPipeline(gDevice, gGraphicsPipeline);
     SDL_ReleaseGPUShader(gDevice, gShaders.vertex);
     SDL_ReleaseGPUShader(gDevice, gShaders.fragment);
