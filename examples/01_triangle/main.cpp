@@ -175,6 +175,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
+    bool is_minimized = SDL_GetWindowFlags(gWindow) & SDL_WINDOW_MINIMIZED;
+    if (is_minimized) {
+        return SDL_APP_CONTINUE;
+    }
+
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gDevice);
     SDL_GPUTexture* swapchain_texture = nullptr;
     Uint32 width, height;
@@ -208,7 +213,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
     int window_width, window_height;
     SDL_GetWindowSize(gWindow, &window_width, &window_height);
-    
+
     SDL_GPUViewport viewport;
     viewport.x = 0;
     viewport.y = 0;

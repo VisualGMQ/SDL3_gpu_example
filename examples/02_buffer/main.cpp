@@ -298,6 +298,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
+    bool is_minimized = SDL_GetWindowFlags(gWindow) & SDL_WINDOW_MINIMIZED;
+    if (is_minimized) {
+        return SDL_APP_CONTINUE;
+    }
+    
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gDevice);
     SDL_GPUTexture* swapchain_texture = nullptr;
     Uint32 width, height;
@@ -337,11 +342,12 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     SDL_GPUBufferBinding indices_binding;
     indices_binding.buffer = gIndicesBuffer;
     indices_binding.offset = 0;
-    SDL_BindGPUIndexBuffer(render_pass, &indices_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    SDL_BindGPUIndexBuffer(render_pass, &indices_binding,
+                           SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
     int window_width, window_height;
     SDL_GetWindowSize(gWindow, &window_width, &window_height);
-    
+
     SDL_GPUViewport viewport;
     viewport.x = 0;
     viewport.y = 0;
@@ -350,7 +356,6 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     viewport.min_depth = 0;
     viewport.max_depth = 1;
     SDL_SetGPUViewport(render_pass, &viewport);
-    // SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
     SDL_DrawGPUIndexedPrimitives(render_pass, 6, 1, 0, 0, 0);
 
     SDL_EndGPURenderPass(render_pass);
@@ -372,6 +377,8 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+    SDL_WaitForGPUIdle(gDevice);
+
     SDL_ReleaseGPUBuffer(gDevice, gIndicesBuffer);
     SDL_ReleaseGPUBuffer(gDevice, gVertexBuffer);
     SDL_ReleaseGPUGraphicsPipeline(gDevice, gGraphicsPipeline);
