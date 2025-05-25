@@ -12,5 +12,6 @@ include(cmake/copy_dll.cmake)
 include(cmake/compile_shader.cmake)
 
 add_subdirectory(stb)
+add_subdirectory(glm)
 add_subdirectory(SDL3)
 add_subdirectory(examples)

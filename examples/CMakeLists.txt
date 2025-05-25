@@ -1,3 +1,4 @@
 add_subdirectory(01_triangle)
 add_subdirectory(02_buffer)
 add_subdirectory(03_texture)
+add_subdirectory(04_cube)

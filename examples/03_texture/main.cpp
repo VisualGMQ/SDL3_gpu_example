@@ -285,7 +285,7 @@ void createAndUploadIndicesData() {
     SDL_ReleaseGPUTransferBuffer(gDevice, transfer_buffer);
 }
 
-void createTexture() {
+void createImageTexture() {
     int w, h;
     stbi_set_flip_vertically_on_load(true);
     unsigned char* data =
@@ -384,7 +384,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 
     createAndUploadVertexData();
     createAndUploadIndicesData();
-    createTexture();
+    createImageTexture();
     createSampler();
 
     return SDL_APP_CONTINUE;
