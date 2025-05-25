@@ -20,7 +20,7 @@ SDL_GPUDevice* gDevice = nullptr;
 GPUShaderBundle gShaders;
 SDL_GPUGraphicsPipeline* gGraphicsPipeline;
 
-SDL_GPUBuffer* gVertexBuffer;
+SDL_GPUBuffer* gPlaneVertexBuffer;
 SDL_GPUBuffer* gIndicesBuffer;
 
 SDL_GPUTexture* gTexture;
@@ -228,7 +228,7 @@ void createAndUploadVertexData() {
     gpu_buffer_ci.size = sizeof(vertices);
     gpu_buffer_ci.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
 
-    gVertexBuffer = SDL_CreateGPUBuffer(gDevice, &gpu_buffer_ci);
+    gPlaneVertexBuffer = SDL_CreateGPUBuffer(gDevice, &gpu_buffer_ci);
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gDevice);
     SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(cmd);
@@ -236,7 +236,7 @@ void createAndUploadVertexData() {
     location.offset = 0;
     location.transfer_buffer = transfer_buffer;
     SDL_GPUBufferRegion region;
-    region.buffer = gVertexBuffer;
+    region.buffer = gPlaneVertexBuffer;
     region.offset = 0;
     region.size = sizeof(vertices);
     SDL_UploadToGPUBuffer(copy_pass, &location, &region, false);
@@ -428,7 +428,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     SDL_BindGPUGraphicsPipeline(render_pass, gGraphicsPipeline);
 
     SDL_GPUBufferBinding binding;
-    binding.buffer = gVertexBuffer;
+    binding.buffer = gPlaneVertexBuffer;
     binding.offset = 0;
     SDL_BindGPUVertexBuffers(render_pass, 0, &binding, 1);
 
@@ -480,7 +480,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result) {
     SDL_ReleaseGPUSampler(gDevice, gSampler);
     SDL_ReleaseGPUTexture(gDevice, gTexture);
     SDL_ReleaseGPUBuffer(gDevice, gIndicesBuffer);
-    SDL_ReleaseGPUBuffer(gDevice, gVertexBuffer);
+    SDL_ReleaseGPUBuffer(gDevice, gPlaneVertexBuffer);
     SDL_ReleaseGPUGraphicsPipeline(gDevice, gGraphicsPipeline);
     SDL_ReleaseGPUShader(gDevice, gShaders.vertex);
     SDL_ReleaseGPUShader(gDevice, gShaders.fragment);
